@@ -332,8 +332,17 @@ cmd_capture() {
       fi
     done
     if [ $profiles_count -gt 1 -o -n "$MOZ_AMP_PROFILE" ]; then
+      # we seem to get an offset of about ~190 ms, so compensate for it here..
+      PC_MILLISECONDS=$(python -c 'import time; print time.time() - 190')
+      ${ADB} shell log "profilerClockSync ${PC_MILLISECONDS}"
+      LINE_TEXT=$(${ADB} logcat -v threadtime -d *:S log:I | grep profilerClockSync | tail -1)
+      # we need year separately because logcat -v only includes month and day, and the phone
+      # might not be in the same year as the PC
+      YEAR_TEXT=$(${ADB} shell "date +%Y" | tr -d '\r\n')
+      echo "LINE TEXT: ${YEAR_TEXT}-${LINE_TEXT}"
+
       echo "Merging profile:$profiles_to_merge"
-      ./gecko/tools/profiler/merge-profiles.py --power=$MOZ_AMP_PROFILE $profiles_to_merge > profile_captured.sym
+      ./gecko/tools/profiler/merge-profiles.py --power=$MOZ_AMP_PROFILE --timesync="$YEAR_TEXT-$LINE_TEXT" $profiles_to_merge > profile_captured.sym
       echo ""
       echo "Results: profile_captured.sym"
     fi
